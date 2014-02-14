@@ -11,9 +11,12 @@
 #import "Province.h"
 #import "City.h"
 
-static NSString *provinceUrl = @"http://flash.weather.com.cn/wmaps/xml/china.xml";
-static NSString *ciryUrl = @"http://flash.weather.com.cn/wmaps/xml/%@.xml ";
-static NSString *weatherUrl = @"http://m.weather.com.cn/data/%@.h";
+//static NSString *provinceUrl = @"http://flash.weather.com.cn/wmaps/xml/china.xml";
+//static NSString *ciryUrl = @"http://flash.weather.com.cn/wmaps/xml/%@.xml ";
+//static NSString *weatherUrl = @"http://www.weather.com.cn/data/cityinfo/%@.html";
+//static NSString *forcastUrl = @"http://mobile.weather.com.cn/data/forecast/%@.html";
+
+#define WEATHERURL @"http://www.weather.com.cn/data/cityinfo/%@.html"
 
 @interface Client ()
 
@@ -56,21 +59,34 @@ static NSString *weatherUrl = @"http://m.weather.com.cn/data/%@.h";
                     //NSLog(@"%@", _city);
                     City *city = [[City alloc] init];
                     city.cityName = _city[@"name"];
-                    city.cityCode = _city[@"weatherCode"];
+                    city.weatherCode = _city[@"weatherCode"];
                     
+                    
+                    //NSLog(@"%@", _city[@"weatherCode"]);
+
                     [province.cities addObject:city];
                 }
             }else if([_temp[@"city"] isKindOfClass:[NSArray class]]){
                 //NSLog(@"id = %@", _temp[@"city"][@"id"]);
                 //NSLog(@"===NSArray===");
                 for (int j = 0; j < [_temp[@"city"] count]; j++) {
-                    NSDictionary *_city = _temp[@"city"][j];
-                    //NSLog(@"%@", _city);
-                    City *city = [[City alloc] init];
-                    city.cityName = _city[@"name"];
-                    city.cityCode = _city[@"weatherCode"];
+                    NSDictionary *_city = _temp[@"city"][j][@"county"];
                     
-                    [province.cities addObject:city];
+                    if ([_city isKindOfClass:[NSArray class]]) {
+                        //NSLog(@"count = %d", [_city count]);
+                        //NSLog(@"%@", _city);
+                        for (int m = 0; m < [_city count]; m++) {
+                            //NSLog(@"%@", _city);
+                            City *city = [[City alloc] init];
+                            city.cityName =    _temp[@"city"][j][@"county"][m][@"name"];
+                            city.weatherCode = _temp[@"city"][j][@"county"][m][@"weatherCode"];
+                            
+                            //NSLog(@"%@", _temp[@"city"][j][@"county"][m][@"weatherCode"]);
+                            
+                            [province.cities addObject:city];
+                        }
+                    }
+                   
                 }
             }
             
@@ -89,6 +105,40 @@ static NSString *weatherUrl = @"http://m.weather.com.cn/data/%@.h";
     
     return nil;
 }
+
+-(void)getCurrentWeather:(NSString *)weatherCode{
+    // 1
+    NSString *weatherUrl = [NSString stringWithFormat:WEATHERURL,weatherCode];
+    
+    NSURL *url = [NSURL URLWithString:weatherUrl];
+    NSURLRequest *request = [NSURLRequest requestWithURL:url];
+
+    NSLog(@"url = %@ , weatherCode = %@", weatherUrl, weatherCode);
+    
+    // 2
+    [AFJSONRequestOperation addAcceptableContentTypes:[NSSet setWithObject:@"text/html"]];
+    AFJSONRequestOperation *operation =
+    [AFJSONRequestOperation JSONRequestOperationWithRequest:request
+     // 3
+                                                    success:^(NSURLRequest *request, NSHTTPURLResponse *response, id JSON) {
+                                                        //self.weather  = (NSDictionary *)JSON;
+                                                        NSLog(@"json = %@", JSON);
+                                                        
+                                                    }
+     // 4
+                                                    failure:^(NSURLRequest *request, NSHTTPURLResponse *response, NSError *error, id JSON) {
+                                                        UIAlertView *av = [[UIAlertView alloc] initWithTitle:@"Error Retrieving Weather"
+                                                                                                     message:[NSString stringWithFormat:@"%@",error]
+                                                                                                    delegate:nil
+                                                                                           cancelButtonTitle:@"OK" otherButtonTitles:nil];
+                                                        [av show];
+                                                    }];
+    
+    // 5
+    [operation start];
+}
+
+
 -(NSDictionary *)getProvinces{
     
     
@@ -106,76 +156,4 @@ static NSString *weatherUrl = @"http://m.weather.com.cn/data/%@.h";
     return nil;
 }
 
--(void)parser:(NSXMLParser *)parser didStartElement:(NSString *)elementName namespaceURI:(NSString *)namespaceURI qualifiedName:(NSString *)qName attributes:(NSDictionary *)attributeDict{
-    
-    self.previousElementName = self.elementName;
-    
-    if (qName) {
-        self.elementName = qName;
-        NSLog(@"qName = %@", qName);
-    }
-    
-    if([qName isEqualToString:@"current_condition"]){
-        //self.currentDictionary = [NSMutableDictionary dictionary];
-    }
-    else if([qName isEqualToString:@"weather"]){
-        //self.currentDictionary = [NSMutableDictionary dictionary];
-    }
-    else if([qName isEqualToString:@"request"]){
-        //self.currentDictionary = [NSMutableDictionary dictionary];
-    }
-    
-    self.outstring = [NSMutableString string];
-}
-
-- (void)parser:(NSXMLParser *)parser foundCharacters:(NSString *)string {
-    if (!self.elementName){
-        return;
-    }
-    
-    [self.outstring appendFormat:@"%@", string];
-    NSLog(@"self.outstring = %@", self.outstring);
-}
-
-- (void)parser:(NSXMLParser *)parser didEndElement:(NSString *)elementName namespaceURI:(NSString *)namespaceURI qualifiedName:(NSString *)qName {
-    
-    NSLog(@"elementName = %@ , namespaceURI = %@", elementName, namespaceURI);
-    
-    /*
-    // 1
-    if([qName isEqualToString:@"current_condition"] ||
-       [qName isEqualToString:@"request"]){
-        [self.xmlWeather setObject:[NSArray arrayWithObject:self.currentDictionary] forKey:qName];
-        self.currentDictionary = nil;
-    }
-    // 2
-    else if([qName isEqualToString:@"weather"]){
-        
-        // Initalise the list of weather items if it dosnt exist
-        NSMutableArray *array = [self.xmlWeather objectForKey:@"weather"];
-        if(!array)
-            array = [NSMutableArray array];
-        
-        [array addObject:self.currentDictionary];
-        [self.xmlWeather setObject:array forKey:@"weather"];
-        
-        self.currentDictionary = nil;
-    }
-    // 3
-    else if([qName isEqualToString:@"value"]){
-        //Ignore value tags they only appear in the two conditions below
-    }
-    // 4
-    else if([qName isEqualToString:@"weatherDesc"] ||
-            [qName isEqualToString:@"weatherIconUrl"]){
-        [self.currentDictionary setObject:[NSArray arrayWithObject:[NSDictionary dictionaryWithObject:self.outstring forKey:@"value"]] forKey:qName];
-    }
-    // 5
-    else {
-        [self.currentDictionary setObject:self.outstring forKey:qName];
-    }
-    
-	self.elementName = nil;
-     */
-}
 @end

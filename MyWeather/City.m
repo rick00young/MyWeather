@@ -10,4 +10,8 @@
 
 @implementation City
 
+-(NSString *)description{
+    return [NSString stringWithFormat:@"cityNmae = %@; weatherCode = %@", self.cityName, self.weatherCode ];
+}
+
 @end

@@ -9,6 +9,9 @@
 #import "FrontTableViewController.h"
 #import "SWRevealViewController.h"
 #import <LBBlurredImage/UIImageView+LBBlurredImage.h>
+#import "WXManager.h"
+#import "HeaderView.h"
+#import "Weather.h"
 
 @interface FrontTableViewController ()
 
@@ -19,6 +22,13 @@
 
 @property (nonatomic, strong) NSDateFormatter *hourlyFormatter;
 @property (nonatomic, strong) NSDateFormatter *dailyFormatter;
+
+@property (nonatomic, strong) UILabel *temperatureLabel;
+@property (nonatomic, strong) UILabel *hiloLabel;
+@property (nonatomic, strong) UILabel *cityLabel;
+@property (nonatomic, strong) UILabel *conditionsLabel;
+
+@property (nonatomic, strong) HeaderView *headerView;
 
 @end
 
@@ -31,6 +41,8 @@
         
         _dailyFormatter = [[NSDateFormatter alloc] init];
         _dailyFormatter.dateFormat = @"EEEE";
+        
+        
     }
     return self;
 }
@@ -47,6 +59,13 @@
 - (void)viewDidLoad
 {
     [super viewDidLoad];
+    self.client = [[WeatherHTTPClient alloc] init];
+    self.client.delegate = self;
+    
+    self.forcastWeatherArray = [NSMutableArray array];
+    [self.forcastWeatherArray addObject:@""];
+    
+    
 	// Do any additional setup after loading the view.
     self.view.backgroundColor = [UIColor whiteColor];
     //UINavigationBar
@@ -78,13 +97,18 @@
     self.tableView.pagingEnabled = YES;
     [self.view addSubview:self.tableView];
     
+    
 
     
     SWRevealViewController *revealController = self.revealViewController;
     [self.view addGestureRecognizer:revealController.panGestureRecognizer];
     
     
-    NSLog(@"city = %@",self.city);
+    //NSLog(@"city = %@",self.city);
+    if (self.city) {
+        //NSLog(@"%@", self.city);
+        [self updateCurrent:self.city];
+    }
     
     
     CGRect headerFrame = [UIScreen mainScreen].bounds;
@@ -111,49 +135,97 @@
     conditionsFrame.size.width = self.view.bounds.size.width - (((2*inset) + iconHeight) + 10);
     conditionsFrame.origin.x = iconFrame.origin.x + (iconHeight + 10);
     
-    //0---------
-    UIView *header = [[UIView alloc] initWithFrame:headerFrame];
-    header.backgroundColor = [UIColor clearColor];
-    self.tableView.tableHeaderView = header;
+    self.headerView = [[HeaderView alloc] initWithFrame:headerFrame];
+    [self.headerView addTemperatureLabel:temperatureFrame];
+    [self.headerView addHiloLabel:hiloFrame];
+    CGRect citypos = CGRectMake(0, 20, self.view.bounds.size.width, 30);
+    [self.headerView addCityLabel:citypos];
+    [self.headerView addConditionsLabel:conditionsFrame];
     
-    //bottom left
-    UILabel *temperatureLabel = [[UILabel alloc] initWithFrame:temperatureFrame];
-    temperatureLabel.backgroundColor = [UIColor clearColor];
-    temperatureLabel.textColor = [UIColor whiteColor];
-    temperatureLabel.text = @"0°";
-    temperatureLabel.font = [UIFont fontWithName:@"HelveticaNeue-UltraLight" size:120];
-    [header addSubview:temperatureLabel];
-    
-    UILabel *hiloLabel = [[UILabel alloc] initWithFrame:hiloFrame];
-    hiloLabel.backgroundColor = [UIColor clearColor];
-    hiloLabel.textColor = [UIColor whiteColor];
-    hiloLabel.text = @"0° / 0°";
-    hiloLabel.font = hiloLabel.font = [UIFont fontWithName:@"HelveticaNeue-Light" size:28];
-    [header addSubview:hiloLabel];
-    
-    //top
-    UILabel *cityLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 20, self.view.bounds.size.width, 30)];
-    cityLabel.backgroundColor = [UIColor clearColor];
-    cityLabel.textColor = [UIColor whiteColor];
-    cityLabel.text = @"Loading";
-    cityLabel.font = [UIFont fontWithName:@"HelveticaNeue-Light" size:18];
-    cityLabel.textAlignment = NSTextAlignmentCenter;
-    [header addSubview:cityLabel];
-    
-    UILabel *conditionsLabel = [[UILabel alloc] initWithFrame:conditionsFrame];
-    conditionsLabel.backgroundColor = [UIColor clearColor];
-    conditionsLabel.font = [UIFont fontWithName:@"HelveticaNeue-Light" size:18];
-    conditionsLabel.textColor = [UIColor whiteColor];
-    [header addSubview:conditionsLabel];
-    
-    //bottom left
-    UIImageView *iconView = [[UIImageView alloc] initWithFrame:iconFrame];
-    iconView.contentMode = UIViewContentModeScaleAspectFit;
-    iconView.backgroundColor = [UIColor clearColor];
-    [header addSubview:iconView];
+    self.tableView.tableHeaderView = self.headerView;
     
     
     
+    
+    
+}
+
+-(void)updateCurrent:(City *)city{
+    //[[WXManager sharedManager] getCurrentWeather:city.weatherCode];
+    [self.client getCurrentWeather:city.weatherCode];
+    
+    [self.client getForecastWeather:city.weatherCode];
+}
+
+
+//代理方法实现
+-(void)weatherHTTPClient:(WeatherHTTPClient *)client didUpdateWithWeather:(NSDictionary *)weather{
+    //NSLog(@"weather source = %@", weather);
+    
+    //NSLog(@"weatherData = %@", weather);
+    
+    if ([weather[@"weatherinfo"] count] > 10) {
+        //self.forcastWeatherDate = weather;
+
+        NSDate *date = [NSDate date];
+        int interval = 1;
+
+        //self.forcastWeatherDate = nil;
+        for (int i = 1; i <= 6; i++) {
+            NSString *temp = [NSString stringWithFormat:@"temp%d",i];
+            Weather *_weather = [[Weather alloc] init];
+            _weather.temp = weather[@"weatherinfo"][temp];
+            
+            _weather.cityName = weather[@"weatherinfo"][@"city"];
+            
+            NSString *fl = [NSString stringWithFormat:@"fl%d", i];
+            _weather.fl = weather[@"weatherinfo"][fl];
+            
+            NSString *w = [NSString stringWithFormat:@"weather%d",i];
+            _weather.weather = weather[@"weatherinfo"][w];
+            
+            //NSLog(@"tmep = %@", _weather.temp);
+            interval = 60*60*24*i;
+            
+            NSDate *today = [[NSDate alloc] initWithTimeInterval:interval sinceDate:date];
+            
+            //NSDate *earlierDate = [[NSDate alloc] initWithTimeInterval:-60*60 sinceDate:[NSDate date]];
+            
+            
+            NSDateFormatter *dateFormatter =[[NSDateFormatter alloc] init];
+            
+            // 设置日期格式
+            
+            [dateFormatter setDateFormat:@"YYYY-MM-dd"];
+
+        
+            NSString *dateString = [dateFormatter stringFromDate:today];
+            // 打印结果：dateString = 年月日 2013/10/16 时间 05:15:43
+            _weather.date_y = dateString;
+            
+            //NSLog(@"dateString = %@",dateString);
+            //NSLog(@"weather = %@", _weather);
+            [self.forcastWeatherArray addObject:_weather];
+        }
+        
+        NSLog(@"forcasetData = %@", self.forcastWeatherArray);
+        [self.tableView reloadData];
+        return;
+    }
+    //self.cityLabel = weather[@"weatherinfo"][@"city"];
+    self.headerView.cityLabel.text = weather[@"weatherinfo"][@"city"];
+    self.headerView.temperatureLabel.text = weather[@"weatherinfo"][@"weather"];
+    
+    self.headerView.conditionsLabel.text = [NSString stringWithFormat:@"时间:%@", weather[@"weatherinfo"][@"ptime"]];
+    
+    self.headerView.hiloLabel.text = [NSString stringWithFormat:@"%@ / %@", weather[@"weatherinfo"][@"temp1"], weather[@"weatherinfo"][@"temp2"]];
+    
+    [self.tableView reloadData];
+}
+
+-(void)weatherHTTPCLient:(WeatherHTTPClient *)client didFailWithError:(NSError *)error{
+
+    NSLog(@"net working is bad");
 }
 
 - (void)viewWillLayoutSubviews {
@@ -177,7 +249,20 @@
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     // TODO: Return count of forecast
+    
+    if (section == 0) {
+        //return 6;
+        //NSLog(@"num = %d",[self.weatherData count]);
+    }else if([self.forcastWeatherArray count] > 0){
+        return [self.forcastWeatherArray count];
+    }
     return 0;
+    /*
+    if (section == 0) {
+        return MIN([self.weatherData count], 6) +1;
+    }
+    return MIN([self.forcastWeatherArray count], 6) + 1;
+     */
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -195,7 +280,21 @@
     cell.detailTextLabel.textColor = [UIColor whiteColor];
     
     // TODO: Setup the cell
-    
+    if (indexPath.section == 0) {
+        //NSDictionary *weather = self.weatherData[indexPath.section][@"weatherinfo"];
+        //NSLog(@"weatherinfo = %@", weather);
+        
+    }else if(indexPath.section == 1){
+        if (indexPath.row == 0) {
+            [self configureHeaderCell:cell title:@"未来6天预报"];
+        }else{
+            Weather *weather = (Weather *)self.forcastWeatherArray[indexPath.row];
+            //cell.textLabel.text = weather.temp;
+            [self configureForcastCell:cell forcastWeather:weather];
+        }
+        
+    }
+    //NSLog(@"weatherinfo");
     return cell;
 }
 
@@ -203,7 +302,28 @@
 
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
     // TODO: Determine cell height based on screen
-    return 44;
+    
+    NSInteger cellCount = [self tableView:tableView numberOfRowsInSection:indexPath.section];
+    NSLog(@"%f", self.view.frame.size.height / cellCount );
+    return self.view.frame.size.height / cellCount;
+    //return 44;
+}
+
+-(void)configureForcastCell:(UITableViewCell *)cell forcastWeather:(Weather *)weather{
+    cell.textLabel.font = [UIFont fontWithName:@"HelveticaNeue-Light" size:18];
+    cell.detailTextLabel.font = [UIFont fontWithName:@"HelveticaNeue-Medium" size:18];
+    NSString *tt = [NSString stringWithFormat:@"%@   %@", weather.date_y, weather.weather];
+    cell.textLabel.text = tt;
+    cell.detailTextLabel.text = weather.temp;
+    //cell.imageView.image = [UIImage imageNamed:[weather imageName]];
+    cell.imageView.contentMode = UIViewContentModeScaleAspectFit;
+}
+
+-(void)configureHeaderCell:(UITableViewCell *)cell title:(NSString *)title{
+    cell.textLabel.font = [UIFont fontWithName:@"HelveticaNeue-Medium" size:18];
+    cell.textLabel.text = title;
+    cell.detailTextLabel.text = @"";
+    cell.imageView.image = nil;
 }
 
 - (void)didReceiveMemoryWarning

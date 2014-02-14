@@ -10,4 +10,12 @@
 
 @interface Weather : NSObject
 
+@property (nonatomic, strong) NSString *cityName;
+@property (nonatomic, strong) NSString *date_y;
+@property (nonatomic, strong) NSString *fl;
+@property (nonatomic, strong) NSString *temp;
+@property (nonatomic, strong) NSString *weather;
+
+
+
 @end

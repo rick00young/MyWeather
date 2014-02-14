@@ -7,7 +7,7 @@
 //
 
 #import "WXManager.h"
-#include "Client.h"
+
 @implementation WXManager
 
 +(instancetype)sharedManager{
@@ -21,9 +21,24 @@
     return _sharedManager;
 }
 
+-(id)init{
+    if (self = [super init]) {
+        self.client = [[Client alloc] init];
+        self.weatherHTTPClient = [[WeatherHTTPClient alloc] init];
+    }
+    
+    return self;
+}
+
 -(NSDictionary *)getProvinces{
-    Client *client = [[Client alloc] init];
-    return [client getAllCities];
+    return [self.client getAllCities];
+    
+}
+
+//------------------
+-(void)getCurrentWeather:(NSString *)weatherCode{
+    
+    return [self.weatherHTTPClient getCurrentWeather:weatherCode];
     
 }
 

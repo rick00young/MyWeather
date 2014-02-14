@@ -8,9 +8,15 @@
 
 #import <UIKit/UIKit.h>
 #import "City.h"
+#import "WeatherHTTPClient.h"
 
-@interface FrontTableViewController : UIViewController <UITableViewDataSource, UITableViewDelegate, UIScrollViewDelegate>
+
+@interface FrontTableViewController : UIViewController <UITableViewDataSource, UITableViewDelegate, UIScrollViewDelegate, WeatherHTTPClientDelegate>
 
 @property (nonatomic, strong) City *city;
+@property (nonatomic, strong) WeatherHTTPClient *client;
+
+@property (nonatomic, strong) NSDictionary * weatherData;
+@property (nonatomic, strong) NSMutableArray * forcastWeatherArray;
 
 @end

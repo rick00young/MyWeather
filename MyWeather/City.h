@@ -12,5 +12,6 @@
 
 @property (nonatomic, strong) NSString *cityName;
 @property (nonatomic, strong) NSString *cityCode;
+@property (nonatomic, strong) NSString *weatherCode;
 
 @end

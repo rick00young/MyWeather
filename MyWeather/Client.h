@@ -17,4 +17,8 @@
 
 @property (nonatomic, strong) NSDictionary *allCities;
 
+@property (nonatomic, strong) NSDictionary *weather;
+
+-(void)getCurrentWeather:(NSString *)weatherCode;
+
 @end
